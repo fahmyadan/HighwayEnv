@@ -34,6 +34,21 @@ class RoadNetwork(object):
         if _to not in self.graph[_from]:
             self.graph[_from][_to] = []
         self.graph[_from][_to].append(lane)
+        
+    def get_lane_ids(self):
+        """
+        Populate self.lane_id_dict with unique lane IDs (as tuples) as keys and a sequential counter as values.
+        """
+        self.lane_id_dict = {}  # Initialize an empty dictionary within the instance
+        lane_id_counter = 0  # Counter to assign unique IDs
+
+        for _from, to_dict in self.graph.items():
+            for _to, lanes in to_dict.items():
+                for _id in range(len(lanes)):
+                    # Use a tuple of (_from, _to, _id) as a unique key for the dictionary
+                    self.lane_id_dict[(_from, _to, _id)] = lane_id_counter
+                    lane_id_counter += 1  # Increment the counter for the next lane
+
 
     def get_lane(self, index: LaneIndex) -> AbstractLane:
         """
@@ -66,6 +81,7 @@ class RoadNetwork(object):
                     distances.append(l.distance_with_heading(position, heading))
                     indexes.append((_from, _to, _id))
         return indexes[int(np.argmin(distances))]
+
 
     def next_lane(
         self,

@@ -240,7 +240,7 @@ class IntersectionEnv(AbstractEnv):
                     end, start, line_types=[n, c], priority=priority, speed_limit=10
                 ),
             )
-
+        net.get_lane_ids()
         road = RegulatedRoad(
             network=net,
             np_random=self.np_random,

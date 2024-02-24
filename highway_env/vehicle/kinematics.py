@@ -251,6 +251,7 @@ class Vehicle(RoadObject):
             "long_off": self.lane_offset[0],
             "lat_off": self.lane_offset[1],
             "ang_off": self.lane_offset[2],
+            "lane_id": self.road.network.lane_id_dict[self.lane_index]
         }
         if not observe_intentions:
             d["cos_d"] = d["sin_d"] = 0
