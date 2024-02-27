@@ -364,6 +364,21 @@ class CircularLane(AbstractLane):
         longitudinal = self.direction * (phi - self.start_phase) * self.radius
         lateral = self.direction * (self.radius - r)
         return longitudinal, lateral
+        
+    def get_arc_points(self, num_points = 20):
+
+        if self.clockwise and self.start_phase > self.end_phase:
+            self.end_phase += 2 * np.pi
+        elif not self.clockwise and self.start_phase < self.end_phase:
+            self.start_phase += 2 * np.pi
+        
+        thetas = np.linspace(self.start_phase, self.end_phase, num_points)
+        arc_points = np.array([
+            self.center[0] + self.radius * np.cos(thetas),
+            self.center[1] + self.radius * np.sin(thetas)
+        ]).T 
+
+        return arc_points
 
     @classmethod
     def from_config(cls, config: dict):

@@ -8,7 +8,8 @@ from highway_env.road.lane import AbstractLane, CircularLane, LineType, Straight
 from highway_env.road.regulation import RegulatedRoad
 from highway_env.road.road import RoadNetwork
 from highway_env.vehicle.kinematics import Vehicle
-
+from highway_env.vehicle.controller import MDPVehicle
+from highway_env.vehicle.behavior import IDMVehicle
 
 class IntersectionEnv(AbstractEnv):
     ACTIONS: Dict[int, str] = {0: "SLOWER", 1: "IDLE", 2: "FASTER"}
@@ -78,6 +79,7 @@ class IntersectionEnv(AbstractEnv):
     def _agent_reward(self, action: int, vehicle: Vehicle) -> float:
         """Per-agent reward signal."""
         rewards = self._agent_rewards(action, vehicle)
+        rewards = self._path_tracking_reward(vehicle, rewards)
         reward = sum(
             self.config.get(name, 0) * reward for name, reward in rewards.items()
         )
@@ -102,6 +104,49 @@ class IntersectionEnv(AbstractEnv):
             "arrived_reward": self.has_arrived(vehicle),
             "on_road_reward": vehicle.on_road,
         }
+    
+    def _path_tracking_reward(self, vehicle: Vehicle, other_rewards: Dict[str, float]):
+
+        if not isinstance(vehicle, MDPVehicle):
+
+            # vehicle = vehicle.plan_route_to(vehicle.destination)
+            lanes_ahead = lanes_on_route = [vehicle.road.network.get_lane(r) for r in vehicle.route]
+        else: 
+            lanes_ahead = lanes_on_route = [vehicle.road.network.get_lane(r) for r in vehicle.route]
+
+
+        trajectory = []
+
+        for lane in lanes_ahead: 
+            if isinstance(lane, CircularLane):
+
+                arc_points = lane.get_arc_points()
+                nodeless_arc_points = arc_points[1:-1]
+                trajectory.append(nodeless_arc_points)
+            elif isinstance(lane, StraightLane): 
+                startx, starty = lane.start[0], lane.start[1]
+                endx, endy = lane.end[0], lane.end[1]
+                x_n = np.linspace(startx, endx, 40)
+                y_n = np.linspace(starty, endy, 40)
+                new = np.column_stack((x_n, y_n))
+                nodeless_new = new[1:-1]
+                trajectory.append(nodeless_new)
+
+        trajectory = np.concatenate(trajectory)
+        closest_pos = trajectory[0]
+        for idx, pos in enumerate(trajectory):
+
+            if np.linalg.norm(vehicle.position - pos) <= np.linalg.norm(vehicle.position - closest_pos):
+                closest_pos = pos
+                closest_idx = idx
+        
+        path_reward = np.linalg.norm(vehicle.position - closest_pos)
+
+        other_rewards.update({'path_reward': path_reward})
+        
+
+        
+        return other_rewards
 
     def _is_terminated(self) -> bool:
         return (

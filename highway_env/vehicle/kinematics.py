@@ -46,6 +46,24 @@ class Vehicle(RoadObject):
         self.impact = None
         self.log = []
         self.history = deque(maxlen=self.HISTORY_SIZE)
+    
+    def plan_route_to(self, destination: str) -> "ControlledVehicle":
+        """
+        Plan a route to a destination in the road network
+
+        :param destination: a node in the road network
+        """
+        try:
+            path = self.road.network.shortest_path(self.lane_index[1], destination)
+        except KeyError:
+            path = []
+        if path:
+            self.route = [self.lane_index] + [
+                (path[i], path[i + 1], None) for i in range(len(path) - 1)
+            ]
+        else:
+            self.route = [self.lane_index]
+        return self
 
     @classmethod
     def create_random(
