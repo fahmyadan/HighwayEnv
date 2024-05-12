@@ -171,6 +171,9 @@ class IntersectionEnv(AbstractEnv):
         info["agents_dones"] = tuple(
             self._agent_is_terminal(vehicle) for vehicle in self.controlled_vehicles
         )
+        info["terminal_observation"] = tuple(
+        obs if self._agent_is_terminal(vehicle) else None for vehicle in self.controlled_vehicles
+        )
         return info
 
     def _reset(self) -> None:
