@@ -399,3 +399,34 @@ class MDPVehicle(ControlledVehicle):
                 if (t % int(trajectory_timestep / dt)) == 0:
                     states.append(copy.deepcopy(v))
         return states
+
+class HybridMDPVehicle(MDPVehicle):
+    DEFAULT_TARGET_SPEEDS = np.linspace(20, 30, 3)
+    MAX_SPEED = 40.0
+    """ Maximum reachable speed [m/s] """
+    MIN_SPEED = 0.0
+
+    def __init__(
+        self,
+        road: Road,
+        position: List[float],
+        heading: float = 0,
+        speed: float = 0,
+        target_lane_index: Optional[LaneIndex] = None,
+        target_speed: Optional[float] = None,
+        target_speeds: Optional[Vector] = None,
+        route: Optional[Route] = None,
+    ) -> None:
+
+        super().__init__(road, position, heading, speed, target_lane_index, target_speed, target_speeds, route)
+        
+    
+    def act(self, action: Union[dict, str] = None) -> None:
+        """
+        Store an action to be repeated.
+
+        :param action: the input action
+        """
+        if action:
+            self.action = action
+

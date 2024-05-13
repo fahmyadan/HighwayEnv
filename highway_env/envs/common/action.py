@@ -7,7 +7,7 @@ from gymnasium import spaces
 
 from highway_env import utils
 from highway_env.utils import Vector
-from highway_env.vehicle.controller import MDPVehicle
+from highway_env.vehicle.controller import MDPVehicle, HybridMDPVehicle
 from highway_env.vehicle.dynamics import BicycleVehicle
 from highway_env.vehicle.kinematics import Vehicle
 
@@ -330,6 +330,66 @@ class MultiAgentAction(ActionType):
             ]
         )
 
+class ContinuousHybridAction(ContinuousAction):
+
+    ACCELERATION_RANGE = (-5, 5.0)
+    """Acceleration range: [-x, x], in m/s²."""
+
+    STEERING_RANGE = (-np.pi / 4, np.pi / 4)
+    """Steering angle range: [-x, x], in rad."""
+
+    def __init__(
+        self,
+        env: "AbstractEnv",
+        acceleration_range: Optional[Tuple[float, float]] = None,
+        steering_range: Optional[Tuple[float, float]] = None,
+        speed_range: Optional[Tuple[float, float]] = None,
+        longitudinal: bool = True,
+        lateral: bool = True,
+        dynamical: bool = False,
+        clip: bool = True,
+        **kwargs
+    ) -> None:
+
+        super().__init__(env, acceleration_range, steering_range, speed_range, longitudinal, lateral, dynamical, clip, **kwargs)
+        self.config = kwargs
+    
+    @property
+    def vehicle_class(self) -> Callable:
+        return HybridMDPVehicle if self.config['hybrid'] else Vehicle #Vehicle if not self.dynamical else BicycleVehicle
+
+
+    def get_action(self, action: np.ndarray):
+        if self.clip:
+            action = np.clip(action, -1, 1)
+        if self.speed_range:
+            (
+                self.controlled_vehicle.MIN_SPEED,
+                self.controlled_vehicle.MAX_SPEED,
+            ) = self.speed_range
+        if self.longitudinal and self.lateral:
+            return {
+                "acceleration": utils.lmap(action[0], [-1, 1], self.acceleration_range),
+                "steering": utils.lmap(action[1], [-1, 1], self.steering_range),
+            }
+        elif self.longitudinal:
+            "steering is controlled by proportional controller given a target lane index"
+            self.controlled_vehicle.follow_road()
+            target_lane = self.controlled_vehicle.target_lane_index
+            steering_angle = self.controlled_vehicle.steering_control(target_lane)
+            steering_angle = np.clip(
+            steering_angle, -self.controlled_vehicle.MAX_STEERING_ANGLE, self.controlled_vehicle.MAX_STEERING_ANGLE
+        )
+            return {
+                "acceleration": utils.lmap(action[0], [-1, 1], self.acceleration_range),
+                "steering": steering_angle,
+            }
+        elif self.lateral:
+            return {
+                "acceleration": 0,
+                "steering": utils.lmap(action[0], [-1, 1], self.steering_range),
+            }
+
 
 def action_factory(env: "AbstractEnv", config: dict) -> ActionType:
     if config["type"] == "ContinuousAction":
@@ -340,5 +400,7 @@ def action_factory(env: "AbstractEnv", config: dict) -> ActionType:
         return DiscreteMetaAction(env, **config)
     elif config["type"] == "MultiAgentAction":
         return MultiAgentAction(env, **config)
+    elif config["type"] == "ContinuousHybridAction":
+        return ContinuousHybridAction(env, **config)
     else:
         raise ValueError("Unknown action type")
