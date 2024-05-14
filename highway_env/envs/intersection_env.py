@@ -161,7 +161,7 @@ class IntersectionEnv(AbstractEnv):
 
     def _is_truncated(self) -> bool:
         """The episode is truncated if the time limit is reached."""
-        return self.time >= self.config["duration"]
+        return self.time +1e-6 >= self.config["duration"]
 
     def _info(self, obs: np.ndarray, action: int) -> dict:
         info = super()._info(obs, action)
