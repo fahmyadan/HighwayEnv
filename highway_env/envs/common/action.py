@@ -230,7 +230,7 @@ class DiscreteMetaAction(ActionType):
         self.longitudinal = longitudinal
         self.lateral = lateral
         self.target_speeds = (
-            np.array(target_speeds)
+            np.linspace(target_speeds[0], target_speeds[1], target_speeds[2])
             if target_speeds is not None
             else MDPVehicle.DEFAULT_TARGET_SPEEDS
         )
