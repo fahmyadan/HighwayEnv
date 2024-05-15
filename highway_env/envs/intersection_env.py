@@ -410,6 +410,8 @@ class IntersectionEnv(AbstractEnv):
         ]
 
     def has_arrived(self, vehicle: Vehicle, exit_distance: float = 25) -> bool:
+        if self.config.get('exit_distance'):
+            exit_distance = self.config['exit_distance']
         return (
             "il" in vehicle.lane_index[0]
             and "o" in vehicle.lane_index[1]
