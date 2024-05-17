@@ -108,6 +108,38 @@ class GrayscaleObservation(ObservationType):
         raw_rgb = np.moveaxis(raw_rgb, 0, 1)
         return np.dot(raw_rgb[..., :3], self.weights).clip(0, 255).astype(np.uint8)
 
+class RGBObservation(GrayscaleObservation):
+    def __init__(
+        self,
+        env: "AbstractEnv",
+        observation_shape: Tuple[int, int],
+        stack_size: int,
+        weights: List[float],
+        scaling: Optional[float] = None,
+        centering_position: Optional[List[float]] = None,
+        **kwargs
+    ) -> None:
+
+        super().__init__(env, observation_shape, stack_size, weights)
+        self.observation_shape = observation_shape
+        self.shape = (stack_size,) + tuple(self.observation_shape)
+        self.weights = weights
+        self.obs = np.zeros(self.shape, dtype=np.uint8)
+    
+    def observe(self) -> np.ndarray:
+        new_obs = self.render_to_rgb()
+        self.obs = np.roll(self.obs, -1, axis=0)
+        # self.obs[-1, :, :] = new_obs
+        self.obs = np.moveaxis(new_obs, -1, 0)
+        return self.obs
+
+    def render_to_rgb(self)-> np.ndarray:
+
+        self.viewer.observer_vehicle = self.observer_vehicle
+        self.viewer.display()
+        raw_rgb = self.viewer.get_image() 
+        raw_rgb = np.moveaxis(raw_rgb, 0, 1)
+        return raw_rgb
 
 class TimeToCollisionObservation(ObservationType):
     def __init__(self, env: "AbstractEnv", horizon: int = 10, **kwargs: dict) -> None:
@@ -780,6 +812,8 @@ def observation_factory(env: "AbstractEnv", config: dict) -> ObservationType:
         return KinematicsGoalObservation(env, **config)
     elif config["type"] == "GrayscaleObservation":
         return GrayscaleObservation(env, **config)
+    elif config["type"] == "RGBObservation":
+        return RGBObservation(env, **config)
     elif config["type"] == "AttributesObservation":
         return AttributesObservation(env, **config)
     elif config["type"] == "MultiAgentObservation":
