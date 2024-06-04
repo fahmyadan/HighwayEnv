@@ -153,7 +153,7 @@ class IntersectionEnv(AbstractEnv):
 
         if within_threshold.size == 0:
             #No point in global path is near enough 
-            return 0
+            return other_rewards.update({'goal_reward': 0})
 
         local_goal = within_threshold[-1]
 
