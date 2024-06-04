@@ -80,6 +80,7 @@ class IntersectionEnv(AbstractEnv):
         """Per-agent reward signal."""
         rewards = self._agent_rewards(action, vehicle)
         rewards = self._path_tracking_reward(vehicle, rewards)
+        rewards = self.get_local_goal_reward(vehicle, rewards)
         reward = sum(
             self.config.get(name, 0) * reward for name, reward in rewards.items()
         )
@@ -104,7 +105,84 @@ class IntersectionEnv(AbstractEnv):
             "arrived_reward": self.has_arrived(vehicle),
             "on_road_reward": vehicle.on_road,
         }
-    
+    def get_global_path(self,vehicle, lanes_ahead):
+
+        trajectory = []
+
+        for lane in lanes_ahead: 
+            if isinstance(lane, CircularLane):
+
+                arc_points = lane.get_arc_points()
+                nodeless_arc_points = arc_points[1:-1]
+                trajectory.append(nodeless_arc_points)
+            elif isinstance(lane, StraightLane): 
+                startx, starty = lane.start[0], lane.start[1]
+                endx, endy = lane.end[0], lane.end[1]
+                x_n = np.linspace(startx, endx, 40)
+                y_n = np.linspace(starty, endy, 40)
+                new = np.column_stack((x_n, y_n))
+                nodeless_new = new[1:-1]
+                trajectory.append(nodeless_new)
+
+        trajectory = np.concatenate(trajectory)
+        closest_pos = trajectory[0]
+        for idx, pos in enumerate(trajectory):
+
+            if np.linalg.norm(vehicle.position - pos) <= np.linalg.norm(vehicle.position - closest_pos):
+                closest_pos = pos
+                closest_idx = idx
+        
+        # self.local_goal = self.get_local_goal(trajectory, veh_pose=self.veh_object.position, vel=self.veh_object.speed)
+        
+        return trajectory[closest_idx:]
+
+    def get_local_goal_reward(self, vehicle, other_rewards, T=1, b=10):
+
+        if not isinstance(vehicle, MDPVehicle):
+            lanes_ahead = lanes_on_route = [vehicle.road.network.get_lane(r) for r in vehicle.route]
+        else: 
+            lanes_ahead = lanes_on_route = [vehicle.road.network.get_lane(r) for r in vehicle.route]
+
+        global_path = self.get_global_path(vehicle, lanes_ahead)
+        vel = vehicle.speed
+        veh_pose = vehicle.position
+
+        distance_threshold = vel * T + b
+        distances = np.linalg.norm(global_path - veh_pose, axis=1)
+        within_threshold = global_path[distances <= distance_threshold]
+
+        if within_threshold.size == 0:
+            #No point in global path is near enough 
+            return 0
+
+        local_goal = within_threshold[-1]
+
+        distance = np.linalg.norm(veh_pose - local_goal, axis=0)
+        goal_reward = self.get_local_global_distance(local_goal, vehicle)
+
+        other_rewards.update({'goal_reward': goal_reward})
+
+        return other_rewards
+
+    def get_local_global_distance(self, local_goal, vehicle):
+
+        global_goal = vehicle.destination
+
+        goal_distance = np.linalg.norm(global_goal - local_goal)
+
+        max_distance = 200  # Define a maximum distance for normalization
+        reward = max(0, 1 - (goal_distance / max_distance))
+
+        return reward
+        
+
+
+
+
+
+
+
+
     def _path_tracking_reward(self, vehicle: Vehicle, other_rewards: Dict[str, float]):
 
         if not isinstance(vehicle, MDPVehicle):
