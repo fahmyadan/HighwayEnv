@@ -81,6 +81,7 @@ class IntersectionEnv(AbstractEnv):
         rewards = self._agent_rewards(action, vehicle)
         rewards = self._path_tracking_reward(vehicle, rewards)
         rewards = self.get_local_goal_reward(vehicle, rewards)
+        
         reward = sum(
             self.config.get(name, 0) * reward for name, reward in rewards.items()
         )
@@ -176,6 +177,27 @@ class IntersectionEnv(AbstractEnv):
         reward = max(0, 1 - (goal_distance / max_distance))
 
         return reward
+
+    def get_straight_reward(self, vehicle):
+
+        #Get target lane (straight) line object, L:
+        target_lane = vehicle.road.network.graph['il2']['o2'][0]
+        start, end = target_lane.start, target_lane.end
+        #Calculate point p, distance d from intersection along L
+        dy = -5 
+        p = start + np.array([0, dy])
+        #Get vehicle poistion, pv and current lane
+        position = vehicle.position
+        current_lane = vehicle.lane
+        #If vehicle is on target lane:
+        if current_lane == target_lane:
+            distance = np.linalg.norm([position - p])
+            if distance < 5:
+                straight_penalty = True
+                return straight_penalty
+            #If norm(pv - p) < threshold:
+                #it has gone straight
+
         
 
 
@@ -233,6 +255,7 @@ class IntersectionEnv(AbstractEnv):
             any(vehicle.crashed for vehicle in self.controlled_vehicles)
             or all(self.has_arrived(vehicle) for vehicle in self.controlled_vehicles)
             or (self.config["offroad_terminal"] and not self.vehicle.on_road)
+            or any(self.get_straight_reward(vehicle) for vehicle in self.controlled_vehicles)
         )
 
     def _agent_is_terminal(self, vehicle: Vehicle) -> bool:
