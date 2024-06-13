@@ -14,6 +14,7 @@ from highway_env.vehicle.behavior import IDMVehicle
 class IntersectionEnv(AbstractEnv):
     ACTIONS: Dict[int, str] = {0: "SLOWER", 1: "IDLE", 2: "FASTER"}
     ACTIONS_INDEXES = {v: k for k, v in ACTIONS.items()}
+    goal_distances = 1e8
 
     @classmethod
     def default_config(cls) -> dict:
@@ -168,13 +169,16 @@ class IntersectionEnv(AbstractEnv):
         return other_rewards
 
     def get_local_global_distance(self, local_goal, vehicle):
-
+       
+        max_distance = 200  # Define a maximum distance for normalization
         global_goal = vehicle.destination
-
         goal_distance = np.linalg.norm(global_goal - local_goal)
 
-        max_distance = 200  # Define a maximum distance for normalization
-        reward = max(0, 1 - (goal_distance / max_distance))
+        if goal_distance <= self.goal_distances:
+            self.goal_distances = goal_distance
+            reward = max(0, 1 - (goal_distance / max_distance))
+        else:
+            reward = 0 
 
         return reward
 
